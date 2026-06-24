@@ -14,7 +14,7 @@ import {PolicyTypes} from "./libraries/PolicyTypes.sol";
 /// @title ERC8196Wallet — reference implementation of the AI Agent Authenticated Wallet.
 /// @notice Executes agent actions only when accompanied by (1) a valid EIP-712 agent
 ///         signature, (2) an active, in-window, within-limits policy, and (3) an
-///         ERC-8126 verification score >= the policy threshold. Maintains a
+///         ERC-8126 risk score that does NOT exceed the policy threshold. Maintains a
 ///         hash-chained on-chain audit trail.
 /// @dev    Implements the ERC-8196 interface verbatim. Three points are unspecified
 ///         by ERC-8196 and resolved here using ONLY spec-defined data (no added
@@ -27,19 +27,22 @@ import {PolicyTypes} from "./libraries/PolicyTypes.sol";
 contract ERC8196Wallet is IERC8196, EIP712, ReentrancyGuard {
     using PolicyTypes for PolicyTypes.Policy;
 
+    /// @dev Defensive bound on policy list sizes (SCSVS S8.1.A). Caps the O(n) auth loop
+    ///      in `_authenticate` and the registration loops. Owner-controlled; this only
+    ///      rejects absurd input, it does not constrain any realistic policy.
+    uint256 internal constant MAX_POLICY_ENTRIES = 100;
+
     /* ------------------------------------------------------------------ */
     /*                            EIP-712 TYPES                            */
     /* ------------------------------------------------------------------ */
 
     bytes32 internal constant AGENT_ACTION_TYPEHASH = keccak256(
         "AgentAction(address agent,string action,address target,uint256 value,"
-        "bytes data,uint256 nonce,uint256 validUntil,bytes32 policyHash,"
-        "bytes32 entropyCommitment)"
+        "bytes data,uint256 nonce,uint256 validUntil,bytes32 policyHash," "bytes32 entropyCommitment)"
     );
 
     bytes32 internal constant DELEGATION_TYPEHASH = keccak256(
-        "Delegation(address delegator,address delegatee,bytes32 policyHash,"
-        "uint256 validUntil,uint256 nonce)"
+        "Delegation(address delegator,address delegatee,bytes32 policyHash," "uint256 validUntil,uint256 nonce)"
     );
 
     /* ------------------------------------------------------------------ */
@@ -48,10 +51,12 @@ contract ERC8196Wallet is IERC8196, EIP712, ReentrancyGuard {
 
     /// @notice ERC-8004 Identity Registry — agents MUST be registered here first.
     IERC8004Identity public immutable identityRegistry;
-    /// @notice ERC-8126 verifier — supplies the score enforced against minVerificationScore.
+    /// @notice ERC-8126 verifier — supplies the risk score capped by minVerificationScore.
     IERC8126 public immutable verifier;
     /// @notice ERC-8004 Validation Registry — target for optional audit-root anchoring.
     IERC8004Validation public immutable validationRegistry;
+    /// @notice Wallet funder/owner (the deployer). Single-tenant: may reclaim native funds.
+    address public immutable owner;
 
     /* ------------------------------------------------------------------ */
     /*                              STORAGE                                */
@@ -81,6 +86,7 @@ contract ERC8196Wallet is IERC8196, EIP712, ReentrancyGuard {
         identityRegistry = IERC8004Identity(identityRegistry_);
         verifier = IERC8126(verifier_);
         validationRegistry = IERC8004Validation(validationRegistry_);
+        owner = msg.sender;
     }
 
     /* ------------------------------------------------------------------ */
@@ -105,6 +111,21 @@ contract ERC8196Wallet is IERC8196, EIP712, ReentrancyGuard {
 
         if (validUntil <= block.timestamp || validUntil <= validAfter) {
             revert PolicyViolation(bytes32(0), "invalid validity window");
+        }
+
+        // SCSVS S8.1.A: bound the per-policy lists so the execution-time auth loop and
+        // the registration loops cannot be made arbitrarily expensive.
+        if (
+            allowedActions.length > MAX_POLICY_ENTRIES || allowedContracts.length > MAX_POLICY_ENTRIES
+                || blockedContracts.length > MAX_POLICY_ENTRIES
+        ) {
+            revert PolicyViolation(bytes32(0), "policy list too large");
+        }
+
+        // SCSVS S7.1.A1: one-time guard so the daily-spend accumulator (uint192) can never
+        // overflow its cast. Far above any real cap; costs nothing per transaction.
+        if (maxValuePerDay > type(uint192).max) {
+            revert PolicyViolation(bytes32(0), "maxValuePerDay too large");
         }
 
         uint256 salt = _registrationNonce[msg.sender]++;
@@ -184,13 +205,17 @@ contract ERC8196Wallet is IERC8196, EIP712, ReentrancyGuard {
         _nonceUsed[policyHash][nonce] = true;
 
         // --- ERC-8126 verification gate ---
-        (uint8 score,) = verifier.verificationScore(_policyAgentId[policyHash]);
-        if (score < p.minVerificationScore) {
-            revert PolicyViolation(policyHash, "verification score below threshold");
+        // ERC-8126 (Final) score is RISK: higher = worse. ERC-8196 rejects when it
+        // EXCEEDS the policy's minVerificationScore (the maximum tolerated risk). No
+        // inversion — the risk score is consumed directly.
+        uint8 riskScore = verifier.getLatestRiskScore(_policyAgentId[policyHash]);
+        if (riskScore > p.minVerificationScore) {
+            revert PolicyViolation(policyHash, "risk score exceeds threshold");
         }
 
         // --- signature: recover the action and authenticate the agent ---
-        string memory action = _authenticate(p.agentAddress, policyHash, p, target, value, data, nonce, entropyCommitment, signature);
+        string memory action =
+            _authenticate(p.agentAddress, policyHash, p, target, value, data, nonce, entropyCommitment, signature);
 
         // --- execute ---
         (success,) = target.call{value: value}(data);
@@ -266,7 +291,7 @@ contract ERC8196Wallet is IERC8196, EIP712, ReentrancyGuard {
     function getPolicy(bytes32 policyHash)
         external
         view
-        returns (address agent, address owner, uint256 maxValuePerTx, uint256 validUntil, bool isActive)
+        returns (address agent, address policyOwner, uint256 maxValuePerTx, uint256 validUntil, bool isActive)
     {
         PolicyTypes.Policy storage p = _policies[policyHash];
         return (p.agentAddress, p.ownerAddress, p.maxValuePerTx, p.validUntil, p.isActive);
@@ -306,6 +331,27 @@ contract ERC8196Wallet is IERC8196, EIP712, ReentrancyGuard {
         _lastAuditHash[sessionId] = entryId;
         _auditSequence[sessionId] = sequence + 1;
         emit AuditEntryLogged(entryId, sequence, sessionId, actionType);
+    }
+
+    /* ------------------------------------------------------------------ */
+    /*                          owner withdrawal                          */
+    /* ------------------------------------------------------------------ */
+
+    /// @notice Emitted when the owner reclaims native funds.
+    event Withdrawal(address indexed to, uint256 amount);
+
+    error NotOwner();
+    error WithdrawFailed();
+
+    /// @notice Single-tenant fund recovery (SCSVS S9.1.A1): the owner (deployer/funder)
+    ///         may withdraw native value so funds can't be locked if the agent key is lost.
+    /// @dev    NOT a bypass of agent gating — the gates constrain the AGENT, not the owner,
+    ///         who already owns these funds. `nonReentrant` for defence in depth.
+    function withdraw(address to, uint256 amount) external nonReentrant {
+        if (msg.sender != owner) revert NotOwner();
+        (bool ok,) = to.call{value: amount}("");
+        if (!ok) revert WithdrawFailed();
+        emit Withdrawal(to, amount);
     }
 
     /// @notice Required to receive native value for funding outbound calls.

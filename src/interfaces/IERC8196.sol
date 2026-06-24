@@ -14,28 +14,16 @@ interface IERC8196 {
     /* ------------------------------------------------------------------ */
 
     event PolicyRegistered(
-        bytes32 indexed policyHash,
-        address indexed owner,
-        address indexed agent,
-        uint256 validUntil
+        bytes32 indexed policyHash, address indexed owner, address indexed agent, uint256 validUntil
     );
 
     event ActionExecuted(
-        bytes32 indexed policyHash,
-        address indexed agent,
-        address target,
-        uint256 value,
-        bytes32 auditEntryId
+        bytes32 indexed policyHash, address indexed agent, address target, uint256 value, bytes32 auditEntryId
     );
 
     event PolicyRevoked(bytes32 indexed policyHash, string reason);
 
-    event AuditEntryLogged(
-        bytes32 indexed entryId,
-        uint256 sequence,
-        bytes32 sessionId,
-        string actionType
-    );
+    event AuditEntryLogged(bytes32 indexed entryId, uint256 sequence, bytes32 sessionId, string actionType);
 
     /* ------------------------------------------------------------------ */
     /*                               ERRORS                                */

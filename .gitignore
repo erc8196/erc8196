@@ -7,3 +7,6 @@ package.json
 package-lock.json
 compile.js
 *.output
+
+.env
+*.pdf

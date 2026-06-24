@@ -3,26 +3,22 @@ pragma solidity ^0.8.24;
 
 /// @title IERC8126 — AI Agent Verification (on-chain query surface)
 /// @notice ERC-8196 states: "Implementations MUST perform a verification check using
-///         ERC-8126 before executing any agent action. The policy's
-///         `minVerificationScore` field MUST be enforced."
-/// @dev    Spec: https://eips.ethereum.org/EIPS/eip-8126
+///         ERC-8126 before executing any agent action. Actions MUST be rejected if the
+///         agent's current ERC-8126 score exceeds the policy's `minVerificationScore`."
+/// @dev    Spec: https://eips.ethereum.org/EIPS/eip-8126 (Final).
 ///         ERC-8126 is primarily an OFF-CHAIN specification; its optional on-chain
-///         component records final scores / emits verification events, and providers
-///         write scores into the ERC-8004 Validation Registry. This interface is the
-///         minimal on-chain query surface ERC-8196 depends on. A conforming verifier
-///         MAY simply proxy ERC-8004's Validation Registry (see IERC8004Validation).
+///         component exposes the latest risk score. This interface mirrors that
+///         component verbatim — ERC-8196 depends on nothing more.
 ///
-///         POLARITY: `score` here is the value ERC-8196 compares with
-///         `minVerificationScore` using `>=`, i.e. higher = more trustworthy
-///         (ERC-8004 "passed" polarity), NOT ERC-8126's raw risk score. The provider
-///         is responsible for the `100 - risk` inversion. See NOTES.md.
+///         POLARITY (ERC-8126, Final): the score is a RISK score in [0,100] where
+///         0 = lowest risk and 100 = highest risk (HIGHER = WORSE). ERC-8196 REJECTS
+///         when this score EXCEEDS `minVerificationScore`, so that field is the maximum
+///         tolerated risk. There is NO `100 - risk` inversion — the wallet consumes the
+///         risk score directly. Per ERC-8126, the returned value MUST be the mean of the
+///         agent's applicable verification scores.
 interface IERC8126 {
-    /// @notice Current verification score for an agent.
-    /// @param agentId ERC-8004 agent id.
-    /// @return score      0-100, higher = more trustworthy (passed polarity).
-    /// @return lastUpdate Timestamp of the underlying assessment (for freshness checks).
-    function verificationScore(uint256 agentId)
-        external
-        view
-        returns (uint8 score, uint256 lastUpdate);
+    /// @notice Latest overall risk score for an agent (mean of applicable verifications).
+    /// @param agentId   ERC-8004 agent id.
+    /// @return riskScore 0-100, higher = MORE risky.
+    function getLatestRiskScore(uint256 agentId) external view returns (uint8 riskScore);
 }

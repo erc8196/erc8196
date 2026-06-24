@@ -8,14 +8,14 @@ pragma solidity ^0.8.24;
 library PolicyTypes {
     struct Policy {
         // --- spec fields ---
-        address agentAddress;        // authorized agent
-        address ownerAddress;        // asset owner
-        uint256 maxValuePerTx;       // per-transaction limit (required)
-        uint256 maxValuePerDay;      // daily spending cap (optional; 0 == unset/unlimited)
-        uint256 validAfter;          // activation timestamp (required)
-        uint256 validUntil;          // expiration timestamp (required)
-        uint8 minVerificationScore;  // ERC-8126 threshold (required)
-        bool isActive;               // false once revoked or never registered
+        address agentAddress; // authorized agent
+        address ownerAddress; // asset owner
+        uint256 maxValuePerTx; // per-transaction limit (required)
+        uint256 maxValuePerDay; // daily spending cap (optional; 0 == unset/unlimited)
+        uint256 validAfter; // activation timestamp (required)
+        uint256 validUntil; // expiration timestamp (required)
+        uint8 minVerificationScore; // ERC-8126 risk ceiling: reject if risk exceeds this (required)
+        bool isActive; // false once revoked or never registered
     }
 
     /// @dev Per-policy daily spend accounting. `day` is a UTC calendar-day bucket

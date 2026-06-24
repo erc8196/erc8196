@@ -7,10 +7,13 @@ pragma solidity ^0.8.24;
 ///         ERC-8126 providers write here, and (b) optional periodic posting of
 ///         hash-chained audit Merkle roots.
 /// @dev    Spec: https://eips.ethereum.org/EIPS/eip-8004
-///         POLARITY: ERC-8004 `response` follows "0 = failed, 100 = passed"
-///         (high = good). ERC-8126 emits a *risk* score (high = bad), so an
-///         ERC-8126 provider MUST write `response = 100 - riskScore` for
-///         ERC-8196's `minVerificationScore >=` check to be correct. See NOTES.md.
+///         POLARITY: ERC-8004 `response` follows "0 = failed, 100 = passed" (high = good).
+///         This is the OPPOSITE of the risk polarity ERC-8196 uses for its score gate:
+///         the wallet reads ERC-8126's risk score directly via `getLatestRiskScore`
+///         (high = bad) and does NOT route scoring through this registry. A bridge that
+///         did post 8126 results here would write `response = 100 - riskScore` to match
+///         ERC-8004's passed polarity. This registry is used only for audit-root
+///         anchoring in the wallet. See NOTES.md.
 interface IERC8004Validation {
     function validationRequest(
         address validatorAddress,

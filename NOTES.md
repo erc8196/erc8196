@@ -35,10 +35,11 @@ enforces `action ∈ allowedActions`. Cost is O(allowedActions) ECDSA recoveries
 **Resolution:** sourced from `policy.validUntil`. **Suggested spec fix:** state this
 explicitly (or add the parameter).
 
-### 3. ERC-8126 check mechanism is undefined on-chain
-ERC-8126 is primarily off-chain; the score is read here via an `IERC8126` verifier
-(which a deployment MAY back with the ERC-8004 Validation Registry, where 8126
-providers write). **Suggested spec fix:** name the on-chain query surface normatively.
+### 3. ERC-8126 check mechanism is read on-chain via the Final interface
+ERC-8126 is primarily off-chain but its **Final** spec defines an optional on-chain
+component: `getLatestRiskScore(uint256 agentId) returns (uint8)`. The wallet calls that
+verbatim through `IERC8126`. The value is a **risk** score (higher = worse) and ERC-8196
+rejects when it **exceeds** `minVerificationScore` — no inversion (see Polarity below).
 
 ### 4. Entropy commit-reveal has no reveal step
 `executeAction` takes `entropyCommitment` only; there is no reveal parameter and no
@@ -50,14 +51,22 @@ remove the reveal-based error.
 
 ## Polarity convention (cross-spec, important)
 
-- ERC-8004 `response`: **0 = failed, 100 = passed** → high = good.
-- ERC-8126 raw output is a **risk** score → high = bad.
-- ERC-8196 compares `score >= minVerificationScore` → expects high = good.
+ERC-8126 is **Final**, so the implementation conforms to it rather than the reverse:
 
-Therefore an **ERC-8126 provider MUST write `response = 100 − riskScore`** to ERC-8004,
-so that the value ERC-8196 reads carries "passed" polarity. If 8126 ever writes raw
-risk, this gate silently inverts (a critical-risk agent passes). The fix belongs in
-**ERC-8126** (the writer), and/or via a tag convention agreed with the ERC-8004 team.
+- ERC-8126 score is a **risk** score, `0` = lowest risk .. `100` = highest risk → **high = bad**.
+- Per ERC-8126 it MUST be the **mean** of the agent's applicable verification scores.
+- ERC-8196 rejects when the score **exceeds** `minVerificationScore`, so that field is a
+  **maximum tolerated risk ceiling**. The wallet consumes the risk score **directly**
+  via `getLatestRiskScore` — there is **no `100 − risk` inversion**.
+
+Naming caveat (ERC-8196 — still adjustable): the field is called `minVerificationScore`
+but functions as a *max risk*. A value of `20` admits only `risk ≤ 20` (Low Risk) agents.
+Consider renaming to `maxRiskScore` in ERC-8196 to remove the min/max ambiguity.
+
+> NB — the ERC-8126 reference scanner (`erc-xxxx-scan`, `lib/risk.ts`) currently
+> aggregates with `Math.max`, not the spec-mandated **mean**. That is a scanner bug to
+> fix against Final ERC-8126; it does not affect this wallet, which reads whatever single
+> risk value the on-chain verifier returns.
 
 ## Other documented implementation choices (spec-permitted latitude)
 
