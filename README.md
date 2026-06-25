@@ -118,6 +118,23 @@ PRIVATE_KEY=0x… ANCHOR_ORACLE=0x… \
 RPC_URL=… ANCHOR=0x… ORACLE_KEY=0x… AGENT_ID=1 RISK=15 ./relayer/relay.sh
 ```
 
+## Live deployment (Ethereum Sepolia)
+
+A reference deployment of the bridge is live and publicly verifiable on **Sepolia**
+(chainId `11155111`):
+
+| Contract | Address |
+|---|---|
+| `ERC8126ScoreAnchor` | [`0x9C27aBF011d5E1D97D5F8d8E58b59C8A182DAab1`](https://sepolia.etherscan.io/address/0x9C27aBF011d5E1D97D5F8d8E58b59C8A182DAab1) |
+| `ERC8196Wallet` | [`0x0a510B545A1d43798450FEFd831C83C4a67501bE`](https://sepolia.etherscan.io/address/0x0a510B545A1d43798450FEFd831C83C4a67501bE) |
+
+Verified flow: an unverified agent reads `100` (fail-closed); after a relayer
+[`setScore` tx](https://sepolia.etherscan.io/tx/0xbcd316dad6b5307531ad9bca069a83ced628c03bb2f4b29be4e37c7fac43f550)
+publishing risk `15`, `getLatestRiskScore(1)` returns `15`. The wallet's `verifier()` points
+at the anchor.
+
+> Demo only — deployed with a throwaway key; not audited; do not use in production.
+
 See [`NOTES.md`](NOTES.md) for dependency wiring and the **polarity convention**
 (ERC-8126 is Final: the wallet reads the risk score directly via `getLatestRiskScore`
 and rejects when it **exceeds** `minVerificationScore` — that field is a max-risk ceiling,
