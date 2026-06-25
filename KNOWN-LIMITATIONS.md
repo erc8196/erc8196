@@ -7,12 +7,20 @@ ERC-8196 / ERC-8126 / ERC-8004 rather than implementation bugs.
 
 ## Integration & conformance
 
-- **External interfaces are this repo's interpretation, not verified against canonical
-  deployments.** `IERC8004Identity` (`agentIdOf`), `IERC8004Validation`, and `IERC8126`
-  (`getLatestRiskScore`) are modelled from the specs as understood here. The real ERC-8004
-  registries may expose different signatures (e.g. the address→agentId reverse lookup).
-  **All tests use in-repo mocks** — there is no test against a live ERC-8004/8126 system.
-  Reconcile against the canonical ABIs (and fork-test) before relying on the integration.
+- **Interfaces reconciled against the canonical specs (2026-06):**
+  - **ERC-8126** `getLatestRiskScore(uint256) → uint8` — **exact match.**
+  - **ERC-8004 Validation Registry** — `validationRequest`, `validationResponse`,
+    `getValidationStatus`, `getSummary` **match canonical exactly**, so `ValidationRegistryAdapter`
+    is built to the real ABI.
+  - **ERC-8004 Identity Registry** — **mismatch:** canonical identifies agents by `agentId`
+    (uint256 ERC-721) with `getAgentWallet(agentId) → address` (forward) and **no reverse
+    `address → agentId` lookup**. ERC-8196 is address-keyed and ERC-8126 is agentId-keyed,
+    so a bridge is unavoidable. This impl's `agentIdOf(address)` is a **non-canonical
+    extension** (see `IERC8004Identity`). **Cleaner fix:** ERC-8196 should register policies
+    by `agentId` and resolve the signing address via canonical `getAgentWallet` — a Draft
+    change worth raising with the ERC-8004 authors.
+- **Still mock-only at runtime.** Signatures now match canonical, but **all tests use in-repo
+  mocks** — there is no fork test against a deployed ERC-8004/8126 system yet.
 
 - **Signatures are not portable across ERC-8196 implementations.** The `AgentAction`
   EIP-712 type includes `action`, but `executeAction` omits it; this wallet recovers it by

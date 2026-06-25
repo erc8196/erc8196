@@ -23,6 +23,10 @@ contract MockIdentityRegistry is IERC8004Identity {
     function ownerOf(uint256 agentId) external view returns (address) {
         return owners[agentId];
     }
+
+    function getAgentWallet(uint256 agentId) external view returns (address) {
+        return owners[agentId];
+    }
 }
 
 /// @notice Deterministic ERC-8126 verifier. `risk` is RISK polarity per ERC-8126
