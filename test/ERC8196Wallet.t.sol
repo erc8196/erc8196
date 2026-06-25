@@ -4,13 +4,7 @@ pragma solidity ^0.8.24;
 import {Test} from "forge-std/Test.sol";
 import {ERC8196Wallet} from "../src/ERC8196Wallet.sol";
 import {IERC8196} from "../src/interfaces/IERC8196.sol";
-import {
-    MockIdentityRegistry,
-    MockVerifier,
-    MockValidationRegistry,
-    MockTarget,
-    ReentrantTarget
-} from "./mocks/Mocks.sol";
+import {MockVerifier, MockValidationRegistry, MockTarget, ReentrantTarget} from "./mocks/Mocks.sol";
 
 /// @title ERC8196Wallet local test harness — fully offline, deterministic, no funds.
 /// @notice Every gate in executeAction has a dedicated revert test, plus a happy
@@ -25,7 +19,6 @@ contract ERC8196WalletTest is Test {
         keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)");
 
     ERC8196Wallet internal wallet;
-    MockIdentityRegistry internal identity;
     MockVerifier internal verifier;
     MockValidationRegistry internal validation;
     MockTarget internal target;
@@ -49,12 +42,10 @@ contract ERC8196WalletTest is Test {
         agent = vm.addr(AGENT_PK);
         owner = address(this);
 
-        identity = new MockIdentityRegistry();
         verifier = new MockVerifier();
         validation = new MockValidationRegistry();
-        wallet = new ERC8196Wallet(address(identity), address(verifier), address(validation));
+        wallet = new ERC8196Wallet(address(verifier), address(validation));
 
-        identity.setAgentId(agent, AGENT_ID);
         verifier.setRisk(AGENT_ID, 10); // low risk, comfortably under MAX_RISK
         target = new MockTarget();
         vm.deal(address(wallet), 100 ether);
@@ -71,7 +62,9 @@ contract ERC8196WalletTest is Test {
         address[] memory allowed = new address[](1);
         allowed[0] = address(target);
         address[] memory blocked = new address[](0);
-        return wallet.registerPolicy(agent, actions, allowed, blocked, MAX_PER_TX, MAX_PER_DAY, 0, validUntil, MAX_RISK);
+        return wallet.registerPolicy(
+            agent, AGENT_ID, actions, allowed, blocked, MAX_PER_TX, MAX_PER_DAY, 0, validUntil, MAX_RISK
+        );
     }
 
     function _domainSeparator() internal view returns (bytes32) {
@@ -230,7 +223,8 @@ contract ERC8196WalletTest is Test {
         actions[0] = "transfer";
         address[] memory allowed = new address[](0);
         address[] memory blocked = new address[](0);
-        bytes32 ph = wallet.registerPolicy(ghost, actions, allowed, blocked, 1 ether, 2 ether, 0, validUntil, MAX_RISK);
+        bytes32 ph =
+            wallet.registerPolicy(ghost, 999, actions, allowed, blocked, 1 ether, 2 ether, 0, validUntil, MAX_RISK);
         assertTrue(ph != bytes32(0));
     }
 
@@ -244,7 +238,7 @@ contract ERC8196WalletTest is Test {
         allowed[0] = address(target);
         address[] memory blocked = new address[](0);
         vm.expectRevert(abi.encodeWithSelector(IERC8196.PolicyViolation.selector, bytes32(0), "policy list too large"));
-        wallet.registerPolicy(agent, actions, allowed, blocked, 1 ether, 2 ether, 0, validUntil, MAX_RISK);
+        wallet.registerPolicy(agent, AGENT_ID, actions, allowed, blocked, 1 ether, 2 ether, 0, validUntil, MAX_RISK);
     }
 
     function test_Revert_MaxValuePerDayTooLarge() public {
@@ -258,7 +252,7 @@ contract ERC8196WalletTest is Test {
         vm.expectRevert(
             abi.encodeWithSelector(IERC8196.PolicyViolation.selector, bytes32(0), "maxValuePerDay too large")
         );
-        wallet.registerPolicy(agent, actions, allowed, blocked, 1 ether, tooBig, 0, validUntil, MAX_RISK);
+        wallet.registerPolicy(agent, AGENT_ID, actions, allowed, blocked, 1 ether, tooBig, 0, validUntil, MAX_RISK);
     }
 
     function test_Revert_Reentrancy() public {
@@ -269,8 +263,9 @@ contract ERC8196WalletTest is Test {
         address[] memory allowed = new address[](1);
         allowed[0] = address(attacker);
         address[] memory blocked = new address[](0);
-        bytes32 ph =
-            wallet.registerPolicy(agent, actions, allowed, blocked, MAX_PER_TX, MAX_PER_DAY, 0, validUntil, MAX_RISK);
+        bytes32 ph = wallet.registerPolicy(
+            agent, AGENT_ID, actions, allowed, blocked, MAX_PER_TX, MAX_PER_DAY, 0, validUntil, MAX_RISK
+        );
 
         // Re-sign against the new policyHash.
         policyHash = ph; // _sign reads policyHash

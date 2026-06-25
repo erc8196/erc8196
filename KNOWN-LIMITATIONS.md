@@ -12,15 +12,19 @@ ERC-8196 / ERC-8126 / ERC-8004 rather than implementation bugs.
   - **ERC-8004 Validation Registry** — `validationRequest`, `validationResponse`,
     `getValidationStatus`, `getSummary` **match canonical exactly**, so `ValidationRegistryAdapter`
     is built to the real ABI.
-  - **ERC-8004 Identity Registry** — **mismatch:** canonical identifies agents by `agentId`
-    (uint256 ERC-721) with `getAgentWallet(agentId) → address` (forward) and **no reverse
-    `address → agentId` lookup**. ERC-8196 is address-keyed and ERC-8126 is agentId-keyed,
-    so a bridge is unavoidable. This impl's `agentIdOf(address)` is a **non-canonical
-    extension** (see `IERC8004Identity`). **Cleaner fix:** ERC-8196 should register policies
-    by `agentId` and resolve the signing address via canonical `getAgentWallet` — a Draft
-    change worth raising with the ERC-8004 authors.
+  - **ERC-8004 Identity Registry** — **not used.** Canonical ERC-8004 has no `address → agentId`
+    reverse lookup, and ERC-8126 keys scores by `agentId`. Rather than invent a non-canonical
+    reverse lookup, `registerPolicy` takes the **`agentId` directly** (owner-supplied) and the
+    score is keyed by it. So the wallet makes **no identity-registry call at all** — and one
+    address backing many agents is handled (each policy names one `agentId`).
 - **Still mock-only at runtime.** Signatures now match canonical, but **all tests use in-repo
   mocks** — there is no fork test against a deployed ERC-8004/8126 system yet.
+
+- **The `agentId`↔`agent` binding is owner-trusted.** `registerPolicy` takes both the agent
+  address (signs actions) and the `agentId` (scored); the wallet does not verify on-chain that
+  they correspond (e.g. via `getAgentWallet`). In the single-tenant model the owner only risks
+  their own funds, so a mismatched pair is not an external threat. Implementations MAY add a
+  `getAgentWallet(agentId) == agent` check if they want the binding enforced on-chain.
 
 - **Signatures are not portable across ERC-8196 implementations.** The `AgentAction`
   EIP-712 type includes `action`, but `executeAction` omits it; this wallet recovers it by

@@ -7,7 +7,6 @@ import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol
 
 import {IERC8196} from "./interfaces/IERC8196.sol";
 import {IERC8126} from "./interfaces/IERC8126.sol";
-import {IERC8004Identity} from "./interfaces/IERC8004Identity.sol";
 import {IERC8004Validation} from "./interfaces/IERC8004Validation.sol";
 import {PolicyTypes} from "./libraries/PolicyTypes.sol";
 
@@ -49,8 +48,6 @@ contract ERC8196Wallet is IERC8196, EIP712, ReentrancyGuard {
     /*                            DEPENDENCIES                             */
     /* ------------------------------------------------------------------ */
 
-    /// @notice ERC-8004 Identity Registry — agents MUST be registered here first.
-    IERC8004Identity public immutable identityRegistry;
     /// @notice ERC-8126 verifier — supplies the risk score capped by minVerificationScore.
     /// @dev    Owner-updatable (see setVerifier) so a deployment can migrate, e.g. from a
     ///         self-stored ScoreAnchor to the ERC-8004 ValidationRegistryAdapter once that
@@ -76,8 +73,7 @@ contract ERC8196Wallet is IERC8196, EIP712, ReentrancyGuard {
     mapping(bytes32 => mapping(uint256 => bool)) private _nonceUsed;
     mapping(bytes32 => PolicyTypes.DailySpend) private _dailySpend;
 
-    /// @dev agentId resolved at registration (needed to key ERC-8126/8004 lookups,
-    ///      which are keyed by agentId rather than address).
+    /// @dev agentId supplied by the owner at registration; the ERC-8126 score is keyed by it.
     mapping(bytes32 => uint256) private _policyAgentId;
 
     /// @dev per-owner salt so two identical policies hash distinctly.
@@ -87,10 +83,7 @@ contract ERC8196Wallet is IERC8196, EIP712, ReentrancyGuard {
     mapping(bytes32 => bytes32) private _lastAuditHash;
     mapping(bytes32 => uint256) private _auditSequence;
 
-    constructor(address identityRegistry_, address verifier_, address validationRegistry_)
-        EIP712("ERC8196Wallet", "1")
-    {
-        identityRegistry = IERC8004Identity(identityRegistry_);
+    constructor(address verifier_, address validationRegistry_) EIP712("ERC8196Wallet", "1") {
         verifier = IERC8126(verifier_);
         validationRegistry = IERC8004Validation(validationRegistry_);
         owner = msg.sender;
@@ -103,6 +96,7 @@ contract ERC8196Wallet is IERC8196, EIP712, ReentrancyGuard {
     /// @inheritdoc IERC8196
     function registerPolicy(
         address agent,
+        uint256 agentId,
         string[] calldata allowedActions,
         address[] calldata allowedContracts,
         address[] calldata blockedContracts,
@@ -112,11 +106,8 @@ contract ERC8196Wallet is IERC8196, EIP712, ReentrancyGuard {
         uint256 validUntil,
         uint8 minVerificationScore
     ) external returns (bytes32 policyHash) {
-        // ERC-8126 risk scores are keyed by ERC-8004 agentId, so resolve it here for the gate.
-        // Registration is NOT separately required (per ERC-8196): an unregistered agent has no
-        // ERC-8126 score and is fail-closed (blocked) at execution — 8004 enforced via 8126.
-        uint256 agentId = identityRegistry.agentIdOf(agent);
-
+        // The owner supplies the ERC-8004 agentId; the ERC-8126 score is keyed by it. No 8004
+        // call here — an agent with no/insufficient score is fail-closed (blocked) at execution.
         if (validUntil <= block.timestamp || validUntil <= validAfter) {
             revert PolicyViolation(bytes32(0), "invalid validity window");
         }
@@ -141,6 +132,7 @@ contract ERC8196Wallet is IERC8196, EIP712, ReentrancyGuard {
             abi.encode(
                 msg.sender,
                 agent,
+                agentId,
                 keccak256(abi.encode(allowedActions)),
                 keccak256(abi.encode(allowedContracts)),
                 keccak256(abi.encode(blockedContracts)),

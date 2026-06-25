@@ -5,7 +5,7 @@ import {Test} from "forge-std/Test.sol";
 import {ValidationRegistryAdapter} from "../src/ValidationRegistryAdapter.sol";
 import {ERC8196Wallet} from "../src/ERC8196Wallet.sol";
 import {IERC8196} from "../src/interfaces/IERC8196.sol";
-import {MockIdentityRegistry, MockValidationRegistry, MockTarget} from "./mocks/Mocks.sol";
+import {MockValidationRegistry, MockTarget} from "./mocks/Mocks.sol";
 
 /// @title ValidationRegistryAdapter tests — ERC-8004 as the store, ERC-8126 as the surface.
 /// @notice Covers polarity inversion, fail-closed (missing/wrong-validator/out-of-range/stale),
@@ -105,12 +105,10 @@ contract ValidationRegistryAdapterTest is Test {
         uint256 agentPk = 0xA11CE;
         address agent = vm.addr(agentPk);
 
-        MockIdentityRegistry identity = new MockIdentityRegistry();
-        identity.setAgentId(agent, AGENT_ID);
         MockTarget target = new MockTarget();
 
         // Wallet uses the ADAPTER (8004-backed) as its ERC-8126 verifier.
-        ERC8196Wallet wallet = new ERC8196Wallet(address(identity), address(adapter), address(registry));
+        ERC8196Wallet wallet = new ERC8196Wallet(address(adapter), address(registry));
         vm.deal(address(wallet), 10 ether);
 
         uint256 validUntil = block.timestamp + 10 days;
@@ -120,7 +118,7 @@ contract ValidationRegistryAdapterTest is Test {
         allowed[0] = address(target);
         address[] memory blocked = new address[](0);
         bytes32 policyHash =
-            wallet.registerPolicy(agent, actions, allowed, blocked, 1 ether, 2 ether, 0, validUntil, 50);
+            wallet.registerPolicy(agent, AGENT_ID, actions, allowed, blocked, 1 ether, 2 ether, 0, validUntil, 50);
 
         bytes memory sig = _sign(agentPk, agent, address(wallet), address(target), 0.5 ether, 1, validUntil, policyHash);
 

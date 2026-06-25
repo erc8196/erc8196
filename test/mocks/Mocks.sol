@@ -1,33 +1,9 @@
 // SPDX-License-Identifier: CC0-1.0
 pragma solidity ^0.8.24;
 
-import {IERC8004Identity} from "../../src/interfaces/IERC8004Identity.sol";
 import {IERC8126} from "../../src/interfaces/IERC8126.sol";
 import {IERC8004Validation} from "../../src/interfaces/IERC8004Validation.sol";
 import {ERC8196Wallet} from "../../src/ERC8196Wallet.sol";
-
-/// @notice Deterministic ERC-8004 Identity Registry for tests. Set who is registered.
-contract MockIdentityRegistry is IERC8004Identity {
-    mapping(address => uint256) public ids;
-    mapping(uint256 => address) public owners;
-
-    function setAgentId(address agent, uint256 id) external {
-        ids[agent] = id;
-        owners[id] = agent;
-    }
-
-    function agentIdOf(address agent) external view returns (uint256) {
-        return ids[agent];
-    }
-
-    function ownerOf(uint256 agentId) external view returns (address) {
-        return owners[agentId];
-    }
-
-    function getAgentWallet(uint256 agentId) external view returns (address) {
-        return owners[agentId];
-    }
-}
 
 /// @notice Deterministic ERC-8126 verifier. `risk` is RISK polarity per ERC-8126
 ///         (Final): 0 = lowest risk, 100 = highest risk (higher = worse). This is the

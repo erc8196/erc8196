@@ -43,6 +43,7 @@ interface IERC8196 {
     /// @return policyHash Canonical identifier / commitment of the policy.
     function registerPolicy(
         address agent,
+        uint256 agentId,
         string[] calldata allowedActions,
         address[] calldata allowedContracts,
         address[] calldata blockedContracts,

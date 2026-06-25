@@ -9,8 +9,7 @@ or policy fields have been added beyond the spec.
 
 | Dependency | Used for | Where |
 |---|---|---|
-| **ERC-8004 Identity Registry** (`IERC8004Identity`) | "must verify agents via ERC-8004 before policy registration" | `registerPolicy` |
-| **ERC-8126 Verifier** (`IERC8126`) | "MUST perform a verification check using ERC-8126 … `minVerificationScore` MUST be enforced" | `executeAction` |
+| **ERC-8126 Verifier** (`IERC8126`) | "MUST perform a verification check using ERC-8126 … `minVerificationScore` MUST be enforced". Keyed by the `agentId` the owner supplies at `registerPolicy` — the wallet makes **no ERC-8004 identity call**. | `executeAction` |
 | **ERC-8004 Validation Registry** (`IERC8004Validation`) | audit-root anchoring ("periodic on-chain Merkle roots posted to ERC-8004's Validation Registry"); also where ERC-8126 providers write scores | held as immutable; see Open Items |
 | **EIP-712** | typed-data agent signatures | OZ `EIP712` base |
 | **ERC-4337** | "Compatible with ERC-4337 wallets" — `executeAction` is signature-authorized and caller-agnostic, so a bundler/relayer or a 4337 account can drive it. No native `validateUserOp` is added (would diverge). | n/a |
@@ -86,7 +85,8 @@ Consider renaming to `maxRiskScore` in ERC-8196 to remove the min/max ambiguity.
   (spec says MAY / periodic). The on-chain `previousHash` chain satisfies the MUST.
 - **`DELEGATION_TYPEHASH`** is declared (verbatim) but no delegation flow is specified
   by ERC-8196 beyond it; left unused pending spec detail.
-- **`IERC8004Identity.agentIdOf`** is a minimal assumed reverse-lookup; confirm against
-  canonical ERC-8004.
+- **agentId resolution**: the owner supplies the `agentId` at `registerPolicy` (the score
+  is keyed by it). The wallet makes **no ERC-8004 identity-registry call** — this avoids the
+  non-existent canonical `address -> agentId` reverse lookup, and handles one address backing
+  many agents (each policy names one `agentId`).
 - **ERC-4337 module** (optional wrapper) — deferred.
-- **Tests** — to be added (`test/`).

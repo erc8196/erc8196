@@ -6,7 +6,7 @@ import {console2} from "forge-std/console2.sol";
 
 import {ERC8196Wallet} from "../src/ERC8196Wallet.sol";
 import {ERC8126ScoreAnchor} from "../src/ERC8126ScoreAnchor.sol";
-import {MockIdentityRegistry, MockValidationRegistry, MockTarget} from "../test/mocks/Mocks.sol";
+import {MockValidationRegistry, MockTarget} from "../test/mocks/Mocks.sol";
 
 /// @title Demo — runnable end-to-end reference of the ERC-8196 trust stack.
 /// @notice Self-contained path (works TODAY, no external infra): scores live in the
@@ -30,10 +30,9 @@ contract Demo is Script {
         address relayer = makeAddr("relayer"); // hot oracle key
 
         // --- Deploy the stack -------------------------------------------------
-        MockIdentityRegistry identity = new MockIdentityRegistry();
         MockValidationRegistry validation = new MockValidationRegistry(); // dormant until 8004 is live
         ERC8126ScoreAnchor anchor = new ERC8126ScoreAnchor(admin, relayer);
-        ERC8196Wallet wallet = new ERC8196Wallet(address(identity), address(anchor), address(validation));
+        ERC8196Wallet wallet = new ERC8196Wallet(address(anchor), address(validation));
         MockTarget target = new MockTarget();
         vm.deal(address(wallet), 10 ether);
 
@@ -41,9 +40,10 @@ contract Demo is Script {
         console2.log("wallet ", address(wallet));
         console2.log("anchor ", address(anchor));
 
-        // --- [1] Register (ERC-8004 identity) --------------------------------
-        identity.setAgentId(agent, AGENT_ID);
-        console2.log("\n[1] Agent registered in ERC-8004. agentId =", AGENT_ID);
+        // --- [1] Agent identity (ERC-8004, off-chain) ------------------------
+        // The agent is registered in ERC-8004 out-of-band; the owner supplies its agentId
+        // to registerPolicy below. The wallet itself makes no ERC-8004 call.
+        console2.log("\n[1] Agent's ERC-8004 agentId =", AGENT_ID, "(supplied by owner)");
 
         // --- [2] Owner registers a policy (ERC-8196) -------------------------
         uint256 validUntil = block.timestamp + 30 days;
@@ -53,7 +53,7 @@ contract Demo is Script {
         allowed[0] = address(target);
         address[] memory blocked = new address[](0);
         bytes32 policyHash =
-            wallet.registerPolicy(agent, actions, allowed, blocked, 1 ether, 2 ether, 0, validUntil, 50);
+            wallet.registerPolicy(agent, AGENT_ID, actions, allowed, blocked, 1 ether, 2 ether, 0, validUntil, 50);
         console2.log("[2] Policy registered. risk ceiling = 50, maxPerTx = 1 ETH");
 
         bytes memory sig = _sign(agent, address(wallet), address(target), 0.5 ether, 1, validUntil, policyHash);

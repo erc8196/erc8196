@@ -49,7 +49,7 @@ ERC-8126, ERC-4337) should align against:
 
 ```solidity
 function registerPolicy(
-    address agent, string[] calldata allowedActions,
+    address agent, uint256 agentId, string[] calldata allowedActions,
     address[] calldata allowedContracts, address[] calldata blockedContracts,
     uint256 maxValuePerTx, uint256 maxValuePerDay,
     uint256 validAfter, uint256 validUntil, uint8 minVerificationScore
@@ -72,8 +72,7 @@ function getPolicy(bytes32 policyHash) external view returns (
 |---|---|
 | `src/interfaces/IERC8196.sol` | **The interface** — stable, citable |
 | `src/ERC8196Wallet.sol` | Reference wallet: policy enforcement, EIP-712 auth, value/temporal/allowlist checks, nonce replay protection, ERC-8126 score gating, hash-chained audit |
-| `src/interfaces/IERC8004Identity.sol` | Consumed subset of the ERC-8004 Identity Registry |
-| `src/interfaces/IERC8004Validation.sol` | Consumed subset of the ERC-8004 Validation Registry |
+| `src/interfaces/IERC8004Validation.sol` | Consumed subset of the ERC-8004 Validation Registry (optional audit anchoring) |
 | `src/interfaces/IERC8126.sol` | On-chain query surface for the ERC-8126 verifier |
 | `src/libraries/PolicyTypes.sol` | Policy and daily-spend storage types |
 | `src/ERC8126ScoreAnchor.sol` | On-chain risk-score store (the bridge's on-chain half): admin/oracle role split, fail-closed, 24h TTL |
@@ -109,8 +108,9 @@ an off-chain relayer. (The `ValidationRegistryAdapter` is a drop-in for when the
 Validation Registry goes live — same `IERC8126` surface, wallet unchanged.)
 
 ```bash
-# 1. deploy (anchor + wallet), pointed at a live ERC-8004 Identity Registry
-PRIVATE_KEY=0x… IDENTITY_REGISTRY=0x… ANCHOR_ORACLE=0x… \
+# 1. deploy (anchor + wallet). The wallet takes no ERC-8004 identity registry — the
+#    owner supplies the agentId at registerPolicy; the wallet only reads the verifier.
+PRIVATE_KEY=0x… ANCHOR_ORACLE=0x… \
   forge script script/Deploy.s.sol --rpc-url $RPC_URL --broadcast
 
 # 2. relay a score on-chain (oracle/hot key; production fetches from erc8126scan,

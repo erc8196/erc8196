@@ -5,7 +5,7 @@ import {Test} from "forge-std/Test.sol";
 import {ERC8196Wallet} from "../src/ERC8196Wallet.sol";
 import {IERC8196} from "../src/interfaces/IERC8196.sol";
 import {ERC8126ScoreAnchor} from "../src/ERC8126ScoreAnchor.sol";
-import {MockIdentityRegistry, MockValidationRegistry, MockTarget} from "./mocks/Mocks.sol";
+import {MockValidationRegistry, MockTarget} from "./mocks/Mocks.sol";
 
 /// @title Bridge integration — ERC8196Wallet reads risk from a real ERC8126ScoreAnchor.
 /// @notice Proves the end-to-end rule at the point of execution:
@@ -21,7 +21,6 @@ contract BridgeIntegrationTest is Test {
 
     ERC8196Wallet internal wallet;
     ERC8126ScoreAnchor internal anchor;
-    MockIdentityRegistry internal identity;
     MockValidationRegistry internal validation;
     MockTarget internal target;
 
@@ -40,16 +39,14 @@ contract BridgeIntegrationTest is Test {
         vm.warp(1_000_000);
         agent = vm.addr(AGENT_PK);
 
-        identity = new MockIdentityRegistry();
         validation = new MockValidationRegistry();
         // admin deploys the anchor and names the relayer as oracle (role split).
         vm.prank(admin);
         anchor = new ERC8126ScoreAnchor(admin, relayer);
 
         // wallet uses the anchor as its ERC-8126 verifier
-        wallet = new ERC8196Wallet(address(identity), address(anchor), address(validation));
+        wallet = new ERC8196Wallet(address(anchor), address(validation));
 
-        identity.setAgentId(agent, AGENT_ID);
         target = new MockTarget();
         vm.deal(address(wallet), 100 ether);
 
@@ -63,7 +60,8 @@ contract BridgeIntegrationTest is Test {
         address[] memory allowed = new address[](1);
         allowed[0] = address(target);
         address[] memory blocked = new address[](0);
-        return wallet.registerPolicy(agent, actions, allowed, blocked, 1 ether, 2 ether, 0, validUntil, MAX_RISK);
+        return
+            wallet.registerPolicy(agent, AGENT_ID, actions, allowed, blocked, 1 ether, 2 ether, 0, validUntil, MAX_RISK);
     }
 
     function _sign(uint256 value, uint256 nonce) internal view returns (bytes memory) {
