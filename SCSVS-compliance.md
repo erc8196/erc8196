@@ -5,6 +5,11 @@ to this repository's contracts:
 
 - [`src/ERC8196Wallet.sol`](src/ERC8196Wallet.sol) — the policy-enforcing wallet (normative ERC-8196 reference).
 - [`src/ERC8126ScoreAnchor.sol`](src/ERC8126ScoreAnchor.sol) — the bridge's on-chain risk-score oracle (non-normative).
+- [`src/ValidationRegistryAdapter.sol`](src/ValidationRegistryAdapter.sol) — ERC-8126 read surface over the ERC-8004 Validation Registry (non-normative).
+
+> **Re-verified against the current implementation** (the `agentId`-in-`registerPolicy`
+> design; the wallet makes **no ERC-8004 identity-registry call**). All 60 tests pass; both
+> live contracts are Sourcify exact-match verified on Sepolia.
 
 **Target assurance level: SCSVS Level 2 (Moderate)** — these contracts hold value and
 gate financial actions, but are single-protocol and non-upgradeable. Level 3 items that
@@ -32,7 +37,7 @@ doesn't apply) · **OPEN** (accepted trade-off or flagged for a spec/design deci
 |---|---|---|---|
 | S2.2.A | Readability & documentation | PASS | Full NatSpec on every external function and the gate sequence. |
 | S2.2.B | Linting / formatting | PASS | `forge fmt` applied; solc build warning-free. Remaining `forge lint` advisories (`block-timestamp`, `unsafe-typecast`) reviewed & accepted: time-windowed policy logic inherently compares `block.timestamp` (sub-second manipulation is irrelevant to 24h TTL / daily buckets / validity windows), and timestamp casts to `uint64` cannot overflow in any realistic horizon. |
-| S2.3.A | Unit + integration tests | PASS | 32 tests across 3 suites, incl. wallet⇄anchor integration. |
+| S2.3.A | Unit + integration tests | PASS | 60 tests across 4 suites, incl. wallet⇄anchor and wallet⇄adapter integration; full lifecycle exercised live on Sepolia. |
 | S2.3.B | **Security-specific tests** | PASS | Reentrancy, nonce replay, access control, bad/forged signature, fail-closed-on-unverified, pause kill-switch, verifier migration — all have dedicated tests; plus **fuzz** tests over the per-tx limit and the risk ceiling. |
 
 ## S3. Business Logic & Economic Security
@@ -52,13 +57,13 @@ doesn't apply) · **OPEN** (accepted trade-off or flagged for a spec/design deci
 | S4.1.B2 | `ecrecover` handles null/unexpected addresses | PASS | OZ `ECDSA.tryRecover`; result checked `err == NoError && recovered == agent` (agent ≠ 0). |
 | S4.1.C1 / S4.2.A1 | `msg.sender` not `tx.origin` | PASS | All authorization uses `msg.sender`. |
 | S4.1.C / least privilege | Minimal privilege per role | PASS | Anchor role split: `admin` (cold, rotate-only) vs `oracle` (hot, write-only). Tested. |
-| S4.2.A2 | Access control on state-changing fns | PASS | `onlyAdmin` / `onlyOracle` on anchor writes; wallet `revokePolicy` is owner-only. |
+| S4.2.A2 | Access control on state-changing fns | PASS | `onlyAdmin` / `onlyOracle` on anchor writes; wallet `revokePolicy` is owner-only; wallet `withdraw` / `setVerifier` / `setPaused` guarded by `onlyOwner`. |
 
 ## S5. Secure Interactions (Oracle — most relevant)
 
 | Ref | Control | Status | Notes |
 |---|---|---|---|
-| S5.1.B | Minimal trusted surface | PASS | Wallet depends on **immutable** registry/verifier addresses set at construction. |
+| S5.1.B | Minimal trusted surface | PASS | Wallet depends only on the ERC-8126 `verifier` (owner-updatable for migration) + an immutable validation registry. It makes **no ERC-8004 identity call** — the `agentId` is owner-supplied at `registerPolicy` and committed into `policyHash`, so the agent's EIP-712 signature is bound to it. |
 | S5.2.A1 | Tamper-proof feed | PASS | Anchor writes gated by `onlyOracle`; random addresses cannot publish (tested). |
 | S5.2.A2 | Validate oracle data | PASS | Anchor caps `risk ≤ 100` on write (`InvalidRisk`). |
 | S5.2.A3 | **Fallback on oracle failure** | PASS | If the verifier reverts or returns no attestation, the agent is **blocked** (fail-closed), never allowed. |
@@ -97,7 +102,7 @@ doesn't apply) · **OPEN** (accepted trade-off or flagged for a spec/design deci
 | Ref | Control | Status | Notes |
 |---|---|---|---|
 | S9.1.A1 | **Payable funds withdrawable (no locked ETH)** | **FIXED** | Single-tenant `owner` (deployer) + `withdraw(to, amount)` (`nonReentrant`, owner-only). Funds can't be locked if the agent key is lost. Not a gating bypass — gates constrain the agent, not the owner. |
-| S9.3.A | Events for critical changes | PASS | Wallet: `PolicyRegistered/ActionExecuted/PolicyRevoked/AuditEntryLogged`. Anchor: `OracleUpdated/AdminTransferStarted/AdminTransferred/ScoreUpdated/ScoreRevoked`. |
+| S9.3.A | Events for critical changes | PASS | Wallet: `PolicyRegistered/ActionExecuted/PolicyRevoked/AuditEntryLogged` + `Withdrawal/VerifierUpdated/PausedSet`. Anchor: `OracleUpdated/AdminTransferStarted/AdminTransferred/MaxScoreAgeUpdated/ScoreUpdated/ScoreRevoked`. |
 | S9.2 (privacy/ZK) | Confidential data | N/A | No on-chain secrets; all state is intentionally public/auditable. |
 
 ## S10 / S11
@@ -109,9 +114,12 @@ doesn't apply) · **OPEN** (accepted trade-off or flagged for a spec/design deci
 
 ---
 
-## Open items (prioritized)
+## Open items (prioritized) — all accepted L2 trade-offs in the single-tenant model
 
 1. **S5.2.B — multi-oracle** (L3; accepted single-authority trade-off). Only adds trust with *independent* providers; with one real ERC-8126 provider (erc8126scan) it would be N self-held keys = no decentralization. Revisit when independent providers exist. Mitigated today by key rotation + fail-closed.
+2. **Owner is fully trusted.** `withdraw` lets the owner reclaim all funds; `setVerifier` swaps the score source **without a timelock**. Acceptable because the wallet is single-tenant — the owner already owns the funds, so these add no trust beyond ownership. A multi-tenant deployment would need a timelock + per-owner accounting.
+3. **`agentId`↔`agentAddress` binding is owner-trusted.** `registerPolicy` takes both; the wallet does not verify on-chain that they correspond. A mismatch only risks the owner's own funds (single-tenant). Implementations MAY add a `getAgentWallet(agentId) == agent` check. See `KNOWN-LIMITATIONS.md`.
+4. **`entropyCommitment` carries no enforced property** — bound into the digest/audit but never revealed; `EntropyVerificationFailed` is unreachable. Documented; a spec-level decision for ERC-8196.
 
 ## Fixed in this pass
 - **S9.1.A1** single-tenant `owner` + `withdraw` (no locked ETH) (+ tests).

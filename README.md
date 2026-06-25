@@ -140,6 +140,10 @@ at the anchor.
 that cleared every gate (risk 15 ≤ ceiling 50, valid EIP-712 signature, limits, nonce) and
 transferred 0.001 ETH with a hash-chained audit entry.
 
+Both contracts are **Sourcify exact-match verified** (source readable via
+`sourcify.dev/#/lookup/<address>`). Self-assessed against OWASP SCSVS 0.0.1 — see
+[`SCSVS-compliance.md`](SCSVS-compliance.md).
+
 > Demo only — deployed with a throwaway key; not audited; do not use in production.
 
 See [`NOTES.md`](NOTES.md) for dependency wiring and the **polarity convention**
