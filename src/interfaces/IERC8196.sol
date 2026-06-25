@@ -4,7 +4,8 @@ pragma solidity ^0.8.24;
 /// @title IERC8196 — AI Agent Authenticated Wallet (execution layer)
 /// @notice External interface as defined by ERC-8196. Signatures are reproduced
 ///         verbatim from the specification so that conforming wallets are ABI-compatible.
-/// @dev    Spec: https://eips.ethereum.org/EIPS/eip-8196 (Draft, Leigh Cronian / @cybercentry)
+/// @dev    Spec: https://eips.ethereum.org/EIPS/eip-8196 (Draft, Leigh Cronian / @cybercentry,
+///         Chris Johnson / @virtuals_io)
 ///         This file is the normative surface. Internal realisation (and the documented
 ///         deviations required to make the spec self-consistent) lives in ERC8196Wallet.sol;
 ///         see NOTES.md for the gap analysis and recommended spec corrections.
