@@ -222,14 +222,16 @@ contract ERC8196WalletTest is Test {
         wallet.revokePolicy(policyHash, "nope");
     }
 
-    function test_Revert_RegisterUnregisteredAgent() public {
+    function test_RegisterUnregisteredAgent_NoLongerReverts() public {
+        // Registration MUST removed (ERC-8196): registering an unregistered agent succeeds,
+        // but it is blocked at execution by the fail-closed ERC-8126 gate (see BridgeIntegration).
         address ghost = address(0x9999);
         string[] memory actions = new string[](1);
         actions[0] = "transfer";
         address[] memory allowed = new address[](0);
         address[] memory blocked = new address[](0);
-        vm.expectRevert(abi.encodeWithSelector(IERC8196.AgentNotRegistered.selector, ghost));
-        wallet.registerPolicy(ghost, actions, allowed, blocked, 1 ether, 2 ether, 0, validUntil, MAX_RISK);
+        bytes32 ph = wallet.registerPolicy(ghost, actions, allowed, blocked, 1 ether, 2 ether, 0, validUntil, MAX_RISK);
+        assertTrue(ph != bytes32(0));
     }
 
     function test_Revert_PolicyListTooLarge() public {

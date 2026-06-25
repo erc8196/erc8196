@@ -33,7 +33,6 @@ interface IERC8196 {
     error ValueExceedsLimit(uint256 value, uint256 maxValue);
     error InvalidSignature(address recovered, address expected);
     error EntropyVerificationFailed(bytes32 commitment, bytes32 revealed);
-    error AgentNotRegistered(address agent);
     error PolicyViolation(bytes32 policyHash, string reason);
 
     /* ------------------------------------------------------------------ */

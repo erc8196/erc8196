@@ -112,9 +112,10 @@ contract ERC8196Wallet is IERC8196, EIP712, ReentrancyGuard {
         uint256 validUntil,
         uint8 minVerificationScore
     ) external returns (bytes32 policyHash) {
-        // ERC-8196: "Implementations must verify agents via ERC-8004 before policy registration."
+        // ERC-8126 risk scores are keyed by ERC-8004 agentId, so resolve it here for the gate.
+        // Registration is NOT separately required (per ERC-8196): an unregistered agent has no
+        // ERC-8126 score and is fail-closed (blocked) at execution — 8004 enforced via 8126.
         uint256 agentId = identityRegistry.agentIdOf(agent);
-        if (agentId == 0) revert AgentNotRegistered(agent);
 
         if (validUntil <= block.timestamp || validUntil <= validAfter) {
             revert PolicyViolation(bytes32(0), "invalid validity window");
