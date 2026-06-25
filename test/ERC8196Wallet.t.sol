@@ -296,6 +296,86 @@ contract ERC8196WalletTest is Test {
         wallet.withdraw(makeAddr("recipient"), 1 ether);
     }
 
+    /* --------------------------- pause (kill-switch) --------------------------- */
+
+    function test_Paused_BlocksExecution() public {
+        wallet.setPaused(true); // owner == address(this)
+        bytes memory sig = _validSig(0.5 ether, 1);
+        vm.expectRevert(ERC8196Wallet.WalletPaused.selector);
+        wallet.executeAction(policyHash, address(target), 0.5 ether, "", 1, bytes32(0), sig);
+    }
+
+    function test_Unpause_RestoresExecution() public {
+        wallet.setPaused(true);
+        wallet.setPaused(false);
+        (bool ok,) =
+            wallet.executeAction(policyHash, address(target), 0.5 ether, "", 1, bytes32(0), _validSig(0.5 ether, 1));
+        assertTrue(ok);
+    }
+
+    function test_SetPaused_OnlyOwner() public {
+        vm.prank(makeAddr("notOwner"));
+        vm.expectRevert(ERC8196Wallet.NotOwner.selector);
+        wallet.setPaused(true);
+    }
+
+    /* --------------------------- verifier migration --------------------------- */
+
+    function test_SetVerifier_Migration() public {
+        // Migrate to a verifier that reports the agent as high risk -> gate now blocks.
+        MockVerifier v2 = new MockVerifier();
+        v2.setRisk(AGENT_ID, 90);
+        wallet.setVerifier(address(v2));
+        assertEq(address(wallet.verifier()), address(v2));
+        bytes memory sig = _validSig(0.5 ether, 1);
+        vm.expectRevert(
+            abi.encodeWithSelector(IERC8196.PolicyViolation.selector, policyHash, "risk score exceeds threshold")
+        );
+        wallet.executeAction(policyHash, address(target), 0.5 ether, "", 1, bytes32(0), sig);
+    }
+
+    function test_SetVerifier_OnlyOwner() public {
+        vm.prank(makeAddr("notOwner"));
+        vm.expectRevert(ERC8196Wallet.NotOwner.selector);
+        wallet.setVerifier(address(verifier));
+    }
+
+    function test_SetVerifier_RejectsZero() public {
+        vm.expectRevert(ERC8196Wallet.ZeroAddress.selector);
+        wallet.setVerifier(address(0));
+    }
+
+    /* --------------------------- fuzz --------------------------- */
+
+    /// @dev Per-tx limit holds for any value: above the cap reverts, at/under executes.
+    function testFuzz_PerTxLimit(uint96 value) public {
+        value = uint96(bound(value, 0, 5 ether));
+        bytes memory sig = _validSig(value, 1);
+        if (value > MAX_PER_TX) {
+            vm.expectRevert(abi.encodeWithSelector(IERC8196.ValueExceedsLimit.selector, uint256(value), MAX_PER_TX));
+            wallet.executeAction(policyHash, address(target), value, "", 1, bytes32(0), sig);
+        } else {
+            (bool ok,) = wallet.executeAction(policyHash, address(target), value, "", 1, bytes32(0), sig);
+            assertTrue(ok);
+            assertEq(address(target).balance, value);
+        }
+    }
+
+    /// @dev Risk ceiling holds for any score: strictly above the ceiling is blocked.
+    function testFuzz_RiskCeiling(uint8 risk) public {
+        verifier.setRisk(AGENT_ID, risk);
+        bytes memory sig = _validSig(0.1 ether, 1);
+        if (risk > MAX_RISK) {
+            vm.expectRevert(
+                abi.encodeWithSelector(IERC8196.PolicyViolation.selector, policyHash, "risk score exceeds threshold")
+            );
+            wallet.executeAction(policyHash, address(target), 0.1 ether, "", 1, bytes32(0), sig);
+        } else {
+            (bool ok,) = wallet.executeAction(policyHash, address(target), 0.1 ether, "", 1, bytes32(0), sig);
+            assertTrue(ok);
+        }
+    }
+
     /* --------------------------- polarity --------------------------- */
 
     /// @notice Documents the ERC-8126 (Final) contract: the verifier returns a RISK

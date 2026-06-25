@@ -33,7 +33,7 @@ doesn't apply) · **OPEN** (accepted trade-off or flagged for a spec/design deci
 | S2.2.A | Readability & documentation | PASS | Full NatSpec on every external function and the gate sequence. |
 | S2.2.B | Linting / formatting | PASS | `forge fmt` applied; solc build warning-free. Remaining `forge lint` advisories (`block-timestamp`, `unsafe-typecast`) reviewed & accepted: time-windowed policy logic inherently compares `block.timestamp` (sub-second manipulation is irrelevant to 24h TTL / daily buckets / validity windows), and timestamp casts to `uint64` cannot overflow in any realistic horizon. |
 | S2.3.A | Unit + integration tests | PASS | 32 tests across 3 suites, incl. wallet⇄anchor integration. |
-| S2.3.B | **Security-specific tests** | PASS | Reentrancy, nonce replay, access control, bad/forged signature, fail-closed-on-unverified all have dedicated tests. |
+| S2.3.B | **Security-specific tests** | PASS | Reentrancy, nonce replay, access control, bad/forged signature, fail-closed-on-unverified, pause kill-switch, verifier migration — all have dedicated tests; plus **fuzz** tests over the per-tx limit and the risk ceiling. |
 
 ## S3. Business Logic & Economic Security
 

@@ -81,6 +81,7 @@ function getPolicy(bytes32 policyHash) external view returns (
 | `script/Deploy.s.sol` · `script/Demo.s.sol` | Deploy script · runnable end-to-end demo |
 | `relayer/relay.sh` | Reference off-chain relayer (publishes scores to the anchor) |
 | [`SCSVS-compliance.md`](SCSVS-compliance.md) | OWASP SCSVS 0.0.1 verification report |
+| [`KNOWN-LIMITATIONS.md`](KNOWN-LIMITATIONS.md) | Honest, up-front list of trade-offs and spec-feedback items |
 | [`NOTES.md`](NOTES.md) | Cross-spec polarity convention + documented resolutions of points the Draft leaves open |
 
 ## Build & test

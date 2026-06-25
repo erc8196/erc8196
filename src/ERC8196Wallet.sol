@@ -52,11 +52,18 @@ contract ERC8196Wallet is IERC8196, EIP712, ReentrancyGuard {
     /// @notice ERC-8004 Identity Registry — agents MUST be registered here first.
     IERC8004Identity public immutable identityRegistry;
     /// @notice ERC-8126 verifier — supplies the risk score capped by minVerificationScore.
-    IERC8126 public immutable verifier;
+    /// @dev    Owner-updatable (see setVerifier) so a deployment can migrate, e.g. from a
+    ///         self-stored ScoreAnchor to the ERC-8004 ValidationRegistryAdapter once that
+    ///         registry is live. The owner is already fully trusted (it can withdraw), so
+    ///         an updatable verifier adds no new trust surface.
+    IERC8126 public verifier;
     /// @notice ERC-8004 Validation Registry — target for optional audit-root anchoring.
     IERC8004Validation public immutable validationRegistry;
     /// @notice Wallet funder/owner (the deployer). Single-tenant: may reclaim native funds.
     address public immutable owner;
+    /// @notice Emergency stop. While true, executeAction is blocked (owner kill-switch for
+    ///         agent-key compromise — stops all policies at once without per-policy revokes).
+    bool public paused;
 
     /* ------------------------------------------------------------------ */
     /*                              STORAGE                                */
@@ -184,6 +191,7 @@ contract ERC8196Wallet is IERC8196, EIP712, ReentrancyGuard {
         bytes32 entropyCommitment,
         bytes calldata signature
     ) external nonReentrant returns (bool success, bytes32 auditEntryId) {
+        if (paused) revert WalletPaused();
         PolicyTypes.Policy storage p = _policies[policyHash];
         if (!p.isActive) revert PolicyViolation(policyHash, "inactive policy");
 
@@ -334,24 +342,47 @@ contract ERC8196Wallet is IERC8196, EIP712, ReentrancyGuard {
     }
 
     /* ------------------------------------------------------------------ */
-    /*                          owner withdrawal                          */
+    /*                       owner administration                         */
     /* ------------------------------------------------------------------ */
 
     /// @notice Emitted when the owner reclaims native funds.
     event Withdrawal(address indexed to, uint256 amount);
+    /// @notice Emitted when the owner migrates the ERC-8126 verifier.
+    event VerifierUpdated(address indexed previousVerifier, address indexed newVerifier);
+    /// @notice Emitted when the owner toggles the emergency stop.
+    event PausedSet(bool paused);
 
     error NotOwner();
     error WithdrawFailed();
+    error WalletPaused();
+    error ZeroAddress();
+
+    modifier onlyOwner() {
+        if (msg.sender != owner) revert NotOwner();
+        _;
+    }
 
     /// @notice Single-tenant fund recovery (SCSVS S9.1.A1): the owner (deployer/funder)
     ///         may withdraw native value so funds can't be locked if the agent key is lost.
     /// @dev    NOT a bypass of agent gating — the gates constrain the AGENT, not the owner,
     ///         who already owns these funds. `nonReentrant` for defence in depth.
-    function withdraw(address to, uint256 amount) external nonReentrant {
-        if (msg.sender != owner) revert NotOwner();
+    function withdraw(address to, uint256 amount) external nonReentrant onlyOwner {
         (bool ok,) = to.call{value: amount}("");
         if (!ok) revert WithdrawFailed();
         emit Withdrawal(to, amount);
+    }
+
+    /// @notice Migrate the ERC-8126 verifier (e.g. ScoreAnchor -> ValidationRegistryAdapter).
+    function setVerifier(address newVerifier) external onlyOwner {
+        if (newVerifier == address(0)) revert ZeroAddress();
+        emit VerifierUpdated(address(verifier), newVerifier);
+        verifier = IERC8126(newVerifier);
+    }
+
+    /// @notice Emergency stop / resume for executeAction (owner kill-switch).
+    function setPaused(bool paused_) external onlyOwner {
+        paused = paused_;
+        emit PausedSet(paused_);
     }
 
     /// @notice Required to receive native value for funding outbound calls.
