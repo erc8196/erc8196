@@ -17,15 +17,16 @@ ERC-8126 → **Execute** ERC-8196).
 sequenceDiagram
     participant Owner
     participant Agent
-    participant Identity as ERC-8004 Identity
-    participant Verifier as ERC-8126 verifier
+    participant ID as ERC-8004 Identity
+    participant Scan as ERC-8126 scan and relayer
+    participant VR as ERC-8004 Validation
     participant Wallet as ERC-8196 Wallet
     participant Target
+    Agent->>ID: register, get agentId
     Owner->>Wallet: registerPolicy
-    Agent->>Identity: register
-    Verifier->>Wallet: latest risk score (unverified is 100)
+    Scan->>VR: publish risk score (unverified is 100)
     Agent->>Wallet: executeAction (signed)
-    Wallet->>Verifier: getLatestRiskScore
+    Wallet->>VR: read latest risk score
     alt risk above ceiling or unverified
         Wallet-->>Agent: revert, blocked
     else risk within ceiling and signature valid
@@ -34,9 +35,11 @@ sequenceDiagram
     end
 ```
 
-**Register** (ERC-8004 identity) → **Verify** (ERC-8126 risk score, published on-chain by a
-relayer; unverified or stale ⇒ fail-closed at 100) → **Execute** (ERC-8196 wallet enforces
-policy + signature + risk ceiling, then logs a hash-chained audit entry).
+**Register** (ERC-8004 Identity) → **Verify** (ERC-8126: the scan scores the agent and a relayer
+publishes it into the **ERC-8004 Validation Registry**, the canonical on-chain store; unverified
+or stale ⇒ fail-closed at 100) → **Execute** (the ERC-8196 wallet reads that score — via the
+`ValidationRegistryAdapter` — and enforces policy + signature + risk ceiling, then logs a
+hash-chained audit entry).
 
 ## The interface (stable artifact)
 
