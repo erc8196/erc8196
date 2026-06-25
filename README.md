@@ -9,7 +9,7 @@ ERC-8126 → **Execute** ERC-8196).
 > contested design decisions. The full wallet here is a **non-normative reference
 > implementation** and may change as the Draft evolves.
 >
-> Website: [erc8196.ai](https://erc8196.ai) · Authored by Leigh Cronian (@cybercentry)
+> Website: [erc8196.ai](https://erc8196.ai) · Authored by Leigh Cronian (@cybercentry) <leigh.cronian@cybercentry.co.uk>, Chris Johnson <chris@virtuals.io>
 
 ## Architecture
 
