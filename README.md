@@ -133,6 +133,13 @@ Verified flow: an unverified agent reads `100` (fail-closed); after a relayer
 publishing risk `15`, `getLatestRiskScore(1)` returns `15`. The wallet's `verifier()` points
 at the anchor.
 
+**Full gate, live on-chain:** the owner
+[`registerPolicy` tx](https://sepolia.etherscan.io/tx/0x673ee8a8d2b7acf5cf131889aa40c505d6ac3c737dd32edd7f76cf63585af3b4)
+(agentId 1), then an agent-signed
+[`executeAction` tx](https://sepolia.etherscan.io/tx/0x70faa9e5c7e12ad2b020ae92487cf2ef97fda6a37fab61afa915b85d49cd31a4)
+that cleared every gate (risk 15 ≤ ceiling 50, valid EIP-712 signature, limits, nonce) and
+transferred 0.001 ETH with a hash-chained audit entry.
+
 > Demo only — deployed with a throwaway key; not audited; do not use in production.
 
 See [`NOTES.md`](NOTES.md) for dependency wiring and the **polarity convention**
