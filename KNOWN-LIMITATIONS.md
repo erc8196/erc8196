@@ -1,7 +1,7 @@
 # Known Limitations
 
 This is a **non-normative, unaudited reference implementation** of [ERC-8196](https://eips.ethereum.org/EIPS/eip-8196)
-(Draft). It is written to be correct and legible, not production-hardened. The limitations
+(Final). It is written to be correct and legible, not production-hardened. The limitations
 below are deliberate and disclosed up front. Several are really *spec feedback* for
 ERC-8196 / ERC-8126 / ERC-8004 rather than implementation bugs.
 
@@ -55,7 +55,8 @@ ERC-8196 / ERC-8126 / ERC-8004 rather than implementation bugs.
 
 - **`minVerificationScore` is misnamed.** Per ERC-8126's risk polarity it functions as a
   *maximum tolerated risk* ceiling (reject if risk exceeds it), not a minimum. Kept verbatim
-  to match the published interface; consider renaming in the Draft.
+  to match the published interface. The standard is Final, so a rename would
+  need an erratum rather than a Draft edit.
 
 ## Implementation choices
 

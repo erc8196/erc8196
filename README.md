@@ -4,10 +4,11 @@ Solidity for **[ERC-8196](https://eips.ethereum.org/EIPS/eip-8196)** — the exe
 layer of the three-tier agent trust stack (**Register** ERC-8004 → **Verify**
 ERC-8126 → **Execute** ERC-8196).
 
-> **Status: Draft, interface-first.** ERC-8196 is an Ethereum proposal currently in
-> Draft. The **citable artifact is the `IERC8196` interface** — it carries no
-> contested design decisions. The full wallet here is a **non-normative reference
-> implementation** and may change as the Draft evolves.
+> **Status: Final.** ERC-8196 was finalised on 21 July 2026, so the interface,
+> events, errors and EIP-712 type hashes it specifies are now fixed. The
+> **citable artifact is the `IERC8196` interface**. The full wallet here is a
+> **non-normative reference implementation**: it may change, the standard will
+> not.
 >
 > Website: [erc8196.ai](https://erc8196.ai) · Authored by Leigh Cronian (@cybercentry) <leigh.cronian@cybercentry.co.uk>, Chris Johnson <chris@virtuals.io>
 
@@ -81,7 +82,7 @@ function getPolicy(bytes32 policyHash) external view returns (
 | `relayer/relay.sh` | Reference off-chain relayer (publishes scores to the anchor) |
 | [`SCSVS-compliance.md`](SCSVS-compliance.md) | OWASP SCSVS 0.0.1 verification report |
 | [`KNOWN-LIMITATIONS.md`](KNOWN-LIMITATIONS.md) | Honest, up-front list of trade-offs and spec-feedback items |
-| [`NOTES.md`](NOTES.md) | Cross-spec polarity convention + documented resolutions of points the Draft leaves open |
+| [`NOTES.md`](NOTES.md) | Cross-spec polarity convention + documented resolutions of points the standard leaves open |
 
 ## Build & test
 

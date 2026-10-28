@@ -7,7 +7,7 @@ Thanks for your interest in the ERC-8196 reference implementation.
 - The **`IERC8196` interface is the stable, citable artifact.** Changes to it are spec
   decisions — open an issue (and ideally raise it on the
   [Ethereum Magicians ERC-8196 thread](https://ethereum-magicians.org/)) before a PR.
-- The wallet and bridge contracts are **non-normative** and may change with the Draft.
+- The wallet and bridge contracts are **non-normative** and may change. The standard is Final and will not.
 - Conform to **OWASP SCSVS** where applicable; if a change touches a control listed in
   [`SCSVS-compliance.md`](SCSVS-compliance.md), update that file.
 

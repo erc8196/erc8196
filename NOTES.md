@@ -1,7 +1,7 @@
 # ERC-8196 Reference Implementation — Build Notes
 
 This implementation is **faithful to the ERC-8196 specification** as published
-(https://eips.ethereum.org/EIPS/eip-8196, Draft). The public surface — interface,
+(https://eips.ethereum.org/EIPS/eip-8196, Final). The public surface — interface,
 events, errors, EIP-712 type hashes — is reproduced verbatim. No features, parameters,
 or policy fields have been added beyond the spec.
 

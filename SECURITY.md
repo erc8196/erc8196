@@ -3,9 +3,9 @@
 ## Status
 
 This repository is a **non-normative reference implementation** of [ERC-8196](https://eips.ethereum.org/EIPS/eip-8196)
-(Draft). It is **not audited** and is **not intended for production use** as-is. The
-citable artifact is the `IERC8196` interface; the wallet and bridge contracts may change
-as the Draft evolves.
+(Final). It is **not audited** and is **not intended for production use** as-is. The
+citable artifact is the `IERC8196` interface; the wallet and bridge contracts are
+non-normative and may change, while the standard itself will not.
 
 A self-assessment against the **OWASP Smart Contract Security Verification Standard
 (SCSVS) 0.0.1** is recorded in [`SCSVS-compliance.md`](SCSVS-compliance.md). A
